@@ -1,0 +1,71 @@
+.tree-container {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--surface);
+  color: var(--fg);
+}
+.tree-container.tree-empty {
+  color: var(--fg-muted);
+}
+
+.tree-node {
+  position: relative;
+}
+
+.tree-children {
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+  margin-left: 5px;
+}
+
+.tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0;
+  vertical-align: middle;
+  margin-right: 2px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.tree-toggle:hover { background: var(--surface-alt); color: var(--fg); }
+.tree-toggle.tree-leaf { visibility: hidden; }
+
+.tree-key {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tree-bracket {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.tree-collapsed {
+  color: var(--fg-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-style: italic;
+}
+.tree-collapsed:hover {
+  background: var(--surface-alt);
+  color: var(--fg);
+}
+
+.tree-val { font-weight: 400; }
+.tree-string { color: var(--success); }
+.tree-number { color: #e879f9; }
+.tree-bool { color: var(--accent); }
+.tree-null { color: var(--fg-muted); font-style: italic; }
