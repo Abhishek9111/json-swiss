@@ -2,35 +2,45 @@ export function toPretty(d) {
   return JSON.stringify(d, null, 2);
 }
 
+function yamlNeedsQuotes(s) {
+  return s === ''
+    || s !== s.trim()
+    || /[:#{}[\],&*?|>!%@`"'\p{Cc}]/u.test(s)
+    || /^(~|null|true|false|yes|no|on|off|y|n)$/i.test(s)
+    || /^-(\s|$)|^---|^\.\.\./.test(s)
+    || /^[-+]?\.(inf|nan)$/i.test(s)
+    || /^\d{4}-\d{2}-\d{2}/.test(s)
+    || !isNaN(s);
+}
+
+function isYamlBlock(v) {
+  return typeof v === 'object' && v !== null && Object.keys(v).length > 0;
+}
+
 export function toYAML(d, indent = 0) {
   const pad = '  '.repeat(indent);
   if (d === null) return 'null';
   if (typeof d === 'boolean') return d ? 'true' : 'false';
   if (typeof d === 'number') return String(d);
   if (typeof d === 'string') {
-    if (d.includes('\n'))
-      return '|\n' + d.split('\n').map(l => pad + '  ' + l).join('\n');
-    if (/[:#{}[\],&*?|>!%@`"']/.test(d) || d === '' || d === 'true' || d === 'false' || d === 'null' || !isNaN(d))
-      return JSON.stringify(d);
-    return d;
+    // `|-` cannot represent a trailing newline, leading space, or control chars.
+    if (d.includes('\n') && !d.endsWith('\n') && !/^\s/.test(d) && !/[^\P{Cc}\n\t]/u.test(d))
+      return '|-\n' + d.split('\n').map(l => pad + '  ' + l).join('\n');
+    return yamlNeedsQuotes(d) ? JSON.stringify(d) : d;
   }
   if (Array.isArray(d)) {
     if (!d.length) return '[]';
     return d.map(item => {
       const val = toYAML(item, indent + 1);
-      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-        const lines = val.split('\n');
-        return pad + '- ' + lines[0] + (lines.length > 1 ? '\n' + lines.slice(1).map(l => pad + '  ' + l).join('\n') : '');
-      }
-      return pad + '- ' + val;
+      return pad + '- ' + (isYamlBlock(item) ? val.trimStart() : val);
     }).join('\n');
   }
   const keys = Object.keys(d);
   if (!keys.length) return '{}';
   return keys.map(k => {
-    const sk = /[:#{}[\],&*?|>!%@`"'\s]/.test(k) ? JSON.stringify(k) : k;
+    const sk = /\s/.test(k) || yamlNeedsQuotes(k) ? JSON.stringify(k) : k;
     const v = d[k];
-    if (typeof v === 'object' && v !== null)
+    if (isYamlBlock(v))
       return pad + sk + ':\n' + toYAML(v, indent + 1);
     return pad + sk + ': ' + toYAML(v, indent + 1);
   }).join('\n');
@@ -120,49 +130,68 @@ function tomlKey(k) {
   return /^[a-zA-Z0-9_-]+$/.test(k) ? k : JSON.stringify(k);
 }
 
+function isPlainObject(v) {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function isTableArray(v) {
+  return Array.isArray(v) && v.length > 0 && v.every(isPlainObject);
+}
+
+function containsNull(v) {
+  if (v === null) return true;
+  if (Array.isArray(v)) return v.some(containsNull);
+  return isPlainObject(v) && Object.values(v).some(containsNull);
+}
+
 function tomlValue(v) {
   if (typeof v === 'string') return JSON.stringify(v);
-  if (typeof v === 'boolean') return v ? 'true' : 'false';
-  if (typeof v === 'number')
-    return Number.isInteger(v) ? String(v) : v.toFixed(6).replace(/0+$/, '0');
-  return JSON.stringify(String(v));
+  if (Array.isArray(v))
+    return `[${v.filter(i => i !== null).map(tomlValue).join(', ')}]`;
+  if (isPlainObject(v)) {
+    const entries = Object.entries(v)
+      .filter(([, iv]) => iv !== null)
+      .map(([ik, iv]) => `${tomlKey(ik)} = ${tomlValue(iv)}`);
+    return entries.length ? `{ ${entries.join(', ')} }` : '{}';
+  }
+  return String(v);
+}
+
+// Keys must precede subtables: TOML assigns any key after a header to that table.
+function emitToml(obj, path, lines) {
+  const subtables = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const key = tomlKey(k);
+    if (v === null) {
+      lines.push(`# ${key} omitted: TOML has no null`);
+    } else if (isPlainObject(v) || isTableArray(v)) {
+      subtables.push([key, v]);
+    } else {
+      if (containsNull(v)) lines.push(`# ${key}: null items omitted, TOML has no null`);
+      lines.push(`${key} = ${tomlValue(v)}`);
+    }
+  }
+  for (const [key, v] of subtables) {
+    const childPath = [...path, key];
+    const header = childPath.join('.');
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        lines.push('', `[[${header}]]`);
+        emitToml(item, childPath, lines);
+      }
+    } else {
+      lines.push('', `[${header}]`);
+      emitToml(v, childPath, lines);
+    }
+  }
 }
 
 export function toTOML(d) {
   if (typeof d !== 'object' || d === null || Array.isArray(d))
     return '# TOML requires a top-level object';
   const lines = [];
-  const tables = [];
-  for (const [k, v] of Object.entries(d)) {
-    const tk = tomlKey(k);
-    if (v == null) continue;
-    if (Array.isArray(v)) {
-      if (v.length && typeof v[0] === 'object' && v[0] !== null && !Array.isArray(v[0])) {
-        v.forEach(item => {
-          tables.push(`\n[[${tk}]]`);
-          for (const [ik, iv] of Object.entries(item))
-            if (typeof iv !== 'object' || iv === null) tables.push(`${tomlKey(ik)} = ${tomlValue(iv)}`);
-        });
-      } else {
-        lines.push(`${tk} = [${v.map(tomlValue).join(', ')}]`);
-      }
-    } else if (typeof v === 'object') {
-      tables.push(`\n[${tk}]`);
-      for (const [ik, iv] of Object.entries(v)) {
-        if (typeof iv !== 'object' || iv === null) {
-          tables.push(`${tomlKey(ik)} = ${tomlValue(iv)}`);
-        } else if (!Array.isArray(iv)) {
-          tables.push(`\n[${tk}.${tomlKey(ik)}]`);
-          for (const [iik, iiv] of Object.entries(iv))
-            if (typeof iiv !== 'object' || iiv === null)
-              tables.push(`${tomlKey(iik)} = ${tomlValue(iiv)}`);
-        }
-      }
-    } else {
-      lines.push(`${tk} = ${tomlValue(v)}`);
-    }
-  }
-  return lines.concat(tables).join('\n');
+  emitToml(d, [], lines);
+  return lines.join('\n').trimStart();
 }
 
 export function toQueryString(d) {
