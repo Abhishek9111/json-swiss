@@ -28,9 +28,10 @@ export default function CompareView({ active, toast }) {
   }, []);
 
   const handlePaste = useCallback((setter) => (e) => {
-    const pasted = e.clipboardData.getData('text');
+    const ta = e.target;
+    if (ta.selectionStart !== 0 || ta.selectionEnd !== ta.value.length) return;
     e.preventDefault();
-    setter(autoFormatOnPaste(pasted));
+    setter(autoFormatOnPaste(e.clipboardData.getData('text')));
   }, [autoFormatOnPaste]);
 
   const handleTab = useCallback((e) => {
