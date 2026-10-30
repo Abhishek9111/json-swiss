@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { queryJsonPath } from '../utils/jsonpath';
+import { useState, useRef, useCallback, useMemo } from 'react';
+import { evaluateQuery } from '../utils/jsonpath';
 import Pane from './Pane';
 import TreeView from './TreeView';
 import {
@@ -17,65 +17,25 @@ const QUERY_EXAMPLES = [
 export default function QueryView({ active, toast }) {
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState(null);
-  const [resultCount, setResultCount] = useState(0);
   const inputRef = useRef(null);
   const queryRef = useRef(null);
 
-  const runQuery = useCallback((jsonStr, q) => {
-    const trimmedJson = (jsonStr || input).trim();
-    const trimmedQuery = (q || query).trim();
-    setError(null);
-
-    if (!trimmedJson) {
-      setResults(null);
-      setResultCount(0);
-      return;
-    }
-    if (!trimmedQuery) {
-      try {
-        const parsed = JSON.parse(trimmedJson);
-        setResults(parsed);
-        setResultCount(1);
-      } catch (e) {
-        setError(e.message);
-        setResults(null);
-        setResultCount(0);
-      }
-      return;
-    }
-
-    let parsed;
-    try { parsed = JSON.parse(trimmedJson); }
-    catch (e) { setError(e.message); setResults(null); setResultCount(0); return; }
-
+  const source = useMemo(() => {
+    const trimmed = input.trim();
+    if (!trimmed) return { data: undefined, error: null };
     try {
-      const matches = queryJsonPath(parsed, trimmedQuery);
-      setResultCount(matches.length);
-      if (matches.length === 0) {
-        setResults(null);
-      } else if (matches.length === 1) {
-        setResults(matches[0]);
-      } else {
-        setResults(matches);
-      }
+      return { data: JSON.parse(trimmed), error: null };
     } catch (e) {
-      setError('Query error: ' + e.message);
-      setResults(null);
-      setResultCount(0);
+      return { data: undefined, error: e.message };
     }
-  }, [input, query]);
+  }, [input]);
 
-  const handleInputChange = useCallback((value) => {
-    setInput(value);
-    runQuery(value, query);
-  }, [query, runQuery]);
-
-  const handleQueryChange = useCallback((value) => {
-    setQuery(value);
-    runQuery(input, value);
-  }, [input, runQuery]);
+  const { results, count: resultCount, error: queryError } = useMemo(
+    () => evaluateQuery(source.data, query),
+    [source, query],
+  );
+  const error = source.error ?? queryError;
+  const hasSource = source.data !== undefined;
 
   const handleSample = useCallback(() => {
     const sample = JSON.stringify({
@@ -90,21 +50,17 @@ export default function QueryView({ active, toast }) {
     }, null, 2);
     setInput(sample);
     setQuery('$.users[*].name');
-    runQuery(sample, '$.users[*].name');
     toast('Sample loaded');
-  }, [runQuery, toast]);
+  }, [toast]);
 
   const handleClear = useCallback(() => {
     setInput('');
     setQuery('');
-    setResults(null);
-    setError(null);
-    setResultCount(0);
     inputRef.current?.focus();
   }, []);
 
   const handleCopy = useCallback(() => {
-    if (results === null) return;
+    if (results === undefined) return;
     const text = JSON.stringify(results, null, 2);
     navigator.clipboard.writeText(text)
       .then(() => toast('Copied'))
@@ -136,7 +92,7 @@ export default function QueryView({ active, toast }) {
               className="query-input"
               type="text"
               value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="$.path.to.value"
               spellCheck={false}
             />
@@ -148,7 +104,7 @@ export default function QueryView({ active, toast }) {
               key={ex.label}
               className="btn"
               title={ex.desc}
-              onClick={() => handleQueryChange(ex.label)}
+              onClick={() => setQuery(ex.label)}
             >
               {ex.label}
             </button>
@@ -175,7 +131,7 @@ export default function QueryView({ active, toast }) {
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => handleInputChange(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleTab}
             placeholder="Paste JSON here..."
             spellCheck={false}
@@ -190,7 +146,10 @@ export default function QueryView({ active, toast }) {
             </button>
           }
         >
-          <TreeView data={results} />
+          <TreeView
+            data={results}
+            emptyMessage={hasSource && !queryError ? 'No matches' : undefined}
+          />
         </Pane>
       </div>
 

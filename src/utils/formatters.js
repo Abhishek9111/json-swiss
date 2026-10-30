@@ -32,8 +32,9 @@ export function computeStats(raw, parsed) {
   }
 
   let typeStr = '';
-  if (parsed !== null && parsed !== undefined) {
-    if (Array.isArray(parsed)) typeStr = `Array[${parsed.length}]`;
+  if (parsed !== undefined) {
+    if (parsed === null) typeStr = 'null';
+    else if (Array.isArray(parsed)) typeStr = `Array[${parsed.length}]`;
     else if (typeof parsed === 'object') typeStr = `Object{${Object.keys(parsed).length}}`;
     else typeStr = typeof parsed;
   }

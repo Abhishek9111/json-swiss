@@ -25,7 +25,7 @@ export default function ConvertView({ active, toast, onStatusChange }) {
   }, [status, onStatusChange]);
 
   const runConvert = useCallback((parsedData, fmt) => {
-    if (parsedData === null) {
+    if (parsedData === undefined) {
       setOutput('Output will appear here');
       return;
     }
@@ -53,7 +53,7 @@ export default function ConvertView({ active, toast, onStatusChange }) {
 
   const handleFormatChange = useCallback((fmt) => {
     setFormat(fmt);
-    if (parsed !== null) {
+    if (parsed !== undefined) {
       runConvert(parsed, fmt);
     }
   }, [parsed, runConvert]);

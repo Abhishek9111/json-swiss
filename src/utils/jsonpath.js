@@ -55,6 +55,25 @@ export function queryJsonPath(data, path) {
   return results;
 }
 
+// `undefined` data means nothing to query; JSON null is a real value.
+export function evaluateQuery(data, query) {
+  if (data === undefined) return { results: undefined, count: 0, error: null };
+  const trimmed = query.trim();
+  if (!trimmed) return { results: data, count: 1, error: null };
+
+  try {
+    const matches = queryJsonPath(data, trimmed);
+    if (matches.length === 0) return { results: undefined, count: 0, error: null };
+    return {
+      results: matches.length === 1 ? matches[0] : matches,
+      count: matches.length,
+      error: null,
+    };
+  } catch (e) {
+    return { results: undefined, count: 0, error: 'Query error: ' + e.message };
+  }
+}
+
 function collectDescendants(obj, results) {
   if (obj === null || typeof obj !== 'object') return;
   const values = Array.isArray(obj) ? obj : Object.values(obj);

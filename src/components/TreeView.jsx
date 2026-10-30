@@ -69,9 +69,9 @@ function TreeNode({ label, value, path, defaultOpen = false }) {
   );
 }
 
-export default function TreeView({ data }) {
-  if (data === null || data === undefined) {
-    return <div className="tree-container tree-empty">Paste valid JSON to see the tree</div>;
+export default function TreeView({ data, emptyMessage = 'Paste valid JSON to see the tree' }) {
+  if (data === undefined) {
+    return <div className="tree-container tree-empty">{emptyMessage}</div>;
   }
 
   return (
