@@ -102,13 +102,18 @@ export default function CompareView({ active, toast }) {
     if (!diffResult || !leftViewRef.current || !rightViewRef.current) return;
     const a = leftViewRef.current;
     const b = rightViewRef.current;
-    let syncing = false;
+    // Scroll events fire async, and a shorter pane clamps; without this the
+    // echo event would drag the longer pane back from its bottom.
+    let ignoreNext = null;
     const syncFrom = (src, tgt) => () => {
-      if (syncing) return;
-      syncing = true;
+      if (ignoreNext === src) {
+        ignoreNext = null;
+        return;
+      }
+      const { scrollTop, scrollLeft } = tgt;
       tgt.scrollTop = src.scrollTop;
       tgt.scrollLeft = src.scrollLeft;
-      syncing = false;
+      if (tgt.scrollTop !== scrollTop || tgt.scrollLeft !== scrollLeft) ignoreNext = tgt;
     };
     const syncAB = syncFrom(a, b);
     const syncBA = syncFrom(b, a);
@@ -118,7 +123,7 @@ export default function CompareView({ active, toast }) {
       a.removeEventListener('scroll', syncAB);
       b.removeEventListener('scroll', syncBA);
     };
-  }, [diffResult]);
+  }, [diffResult, viewMode]);
 
   const diffStats = diffResult
     ? diffResult.addedCount + diffResult.removedCount === 0
@@ -190,9 +195,7 @@ export default function CompareView({ active, toast }) {
           ) : viewMode === 'tree' ? (
             <TreeView data={diffResult.leftObj} />
           ) : (
-            <div ref={leftViewRef}>
-              <DiffView lines={diffResult.leftLines} marks={diffResult.leftMarks} />
-            </div>
+            <DiffView ref={leftViewRef} lines={diffResult.leftLines} marks={diffResult.leftMarks} />
           )}
         </Pane>
         <Pane
@@ -217,9 +220,7 @@ export default function CompareView({ active, toast }) {
           ) : viewMode === 'tree' ? (
             <TreeView data={diffResult.rightObj} />
           ) : (
-            <div ref={rightViewRef}>
-              <DiffView lines={diffResult.rightLines} marks={diffResult.rightMarks} />
-            </div>
+            <DiffView ref={rightViewRef} lines={diffResult.rightLines} marks={diffResult.rightMarks} />
           )}
         </Pane>
       </div>
