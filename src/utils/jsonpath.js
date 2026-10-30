@@ -5,7 +5,9 @@ export function queryJsonPath(data, path) {
   const tokens = tokenize(normalized);
   let results = [data];
 
-  for (const token of tokens) {
+  for (let t = 0; t < tokens.length; t++) {
+    const token = tokens[t];
+    const afterDescent = tokens[t - 1] === '..';
     const next = [];
     for (const current of results) {
       if (current === null || current === undefined || typeof current !== 'object') continue;
@@ -36,9 +38,12 @@ export function queryJsonPath(data, path) {
           if (key in current) next.push(current[key]);
         }
       } else if (token === '..') {
+        next.push(current);
         collectDescendants(current, next);
       } else {
         if (Array.isArray(current)) {
+          // After `..` the array's items are already candidates themselves.
+          if (afterDescent) continue;
           for (const item of current) {
             if (item && typeof item === 'object' && token in item) {
               next.push(item[token]);
