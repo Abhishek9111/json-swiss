@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { deepDiff, computeMarks } from '../utils/diff';
+import { sortKeysDeep } from '../utils/formatters';
 import { DIFF_SAMPLE_LEFT, DIFF_SAMPLE_RIGHT } from '../constants/sampleData';
 import Pane from './Pane';
 import DiffView from './DiffView';
@@ -58,8 +59,8 @@ export default function CompareView({ active, toast }) {
     try { leftObj = JSON.parse(left.trim()); } catch { toast('Left: invalid JSON'); return; }
     try { rightObj = JSON.parse(right.trim()); } catch { toast('Right: invalid JSON'); return; }
 
-    const leftLines = JSON.stringify(leftObj, null, 2).split('\n');
-    const rightLines = JSON.stringify(rightObj, null, 2).split('\n');
+    const leftLines = JSON.stringify(sortKeysDeep(leftObj), null, 2).split('\n');
+    const rightLines = JSON.stringify(sortKeysDeep(rightObj), null, 2).split('\n');
     const { leftMarks, rightMarks } = computeMarks(leftLines, rightLines);
 
     const addedCount = rightMarks.filter(m => m === 'added').length;

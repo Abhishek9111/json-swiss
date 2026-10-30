@@ -8,16 +8,17 @@ export function minifyJSON(raw) {
   return JSON.stringify(parsed);
 }
 
-function sortObj(obj) {
-  if (Array.isArray(obj)) return obj.map(sortObj);
+export function sortKeysDeep(obj) {
+  if (Array.isArray(obj)) return obj.map(sortKeysDeep);
   if (obj !== null && typeof obj === 'object')
-    return Object.keys(obj).sort().reduce((a, k) => { a[k] = sortObj(obj[k]); return a; }, {});
+    // fromEntries defines own properties, so a "__proto__" key survives.
+    return Object.fromEntries(Object.keys(obj).sort().map(k => [k, sortKeysDeep(obj[k])]));
   return obj;
 }
 
 export function sortKeysJSON(raw) {
   const parsed = JSON.parse(raw);
-  return JSON.stringify(sortObj(parsed), null, 2);
+  return JSON.stringify(sortKeysDeep(parsed), null, 2);
 }
 
 export function computeStats(raw, parsed) {
