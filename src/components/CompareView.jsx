@@ -61,13 +61,13 @@ export default function CompareView({ active, toast }) {
 
     const leftLines = JSON.stringify(sortKeysDeep(leftObj), null, 2).split('\n');
     const rightLines = JSON.stringify(sortKeysDeep(rightObj), null, 2).split('\n');
-    const { leftMarks, rightMarks } = computeMarks(leftLines, rightLines);
+    const { leftMarks, rightMarks, approximate } = computeMarks(leftLines, rightLines);
 
     const addedCount = rightMarks.filter(m => m === 'added').length;
     const removedCount = leftMarks.filter(m => m === 'removed').length;
     const objDiffs = deepDiff(leftObj, rightObj, '');
 
-    setDiffResult({ leftObj, rightObj, leftLines, rightLines, leftMarks, rightMarks, addedCount, removedCount, objDiffs });
+    setDiffResult({ leftObj, rightObj, leftLines, rightLines, leftMarks, rightMarks, addedCount, removedCount, objDiffs, approximate });
     setEditing(false);
   }, [left, right, toast]);
 
@@ -171,7 +171,13 @@ export default function CompareView({ active, toast }) {
         </div>
       </div>
 
-      {diffResult && <DiffSummary addedCount={diffResult.addedCount} removedCount={diffResult.removedCount} />}
+      {diffResult && (
+        <DiffSummary
+          addedCount={diffResult.addedCount}
+          removedCount={diffResult.removedCount}
+          approximate={diffResult.approximate}
+        />
+      )}
       {diffResult && <DiffDetails diffs={diffResult.objDiffs} />}
 
       <div className="editors">

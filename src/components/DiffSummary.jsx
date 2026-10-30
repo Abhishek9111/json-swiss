@@ -1,6 +1,6 @@
 import { CheckIcon, PlusIcon, MinusIcon } from './Icons';
 
-export default function DiffSummary({ addedCount, removedCount }) {
+export default function DiffSummary({ addedCount, removedCount, approximate }) {
   const total = addedCount + removedCount;
 
   if (total === 0) {
@@ -20,6 +20,7 @@ export default function DiffSummary({ addedCount, removedCount }) {
       {removedCount > 0 && (
         <span className="diff-badge rm"><MinusIcon />{removedCount} removed</span>
       )}
+      {approximate && <span>Large diff: unchanged lines between the first and last change may be marked as changed</span>}
     </div>
   );
 }
